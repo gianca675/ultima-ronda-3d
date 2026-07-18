@@ -162,9 +162,9 @@ const wallTex=makeTex((x,s)=>{ x.fillStyle="#2a3346";x.fillRect(0,0,s,s);
   x.strokeStyle="rgba(0,0,0,.3)";x.lineWidth=2; for(let i=0;i<=s;i+=42){x.beginPath();x.moveTo(0,i);x.lineTo(s,i);x.stroke();} },2);
 
 /* ---------- luces / ambiente ---------- */
-scene.add(new THREE.HemisphereLight(0x94a8d8,0x252018,0.5));
-scene.add(new THREE.AmbientLight(0x2a3242,0.34));
-const moon=new THREE.DirectionalLight(0xcad8ff,1.05);
+scene.add(new THREE.HemisphereLight(0x94a8d8,0x252018,0.62));
+scene.add(new THREE.AmbientLight(0x2a3242,0.46));
+const moon=new THREE.DirectionalLight(0xcad8ff,1.2);
 moon.position.set(34,60,24); moon.castShadow=true; moon.shadow.mapSize.set(2048,2048);
 const sc=moon.shadow.camera; sc.left=-58;sc.right=58;sc.top=58;sc.bottom=-58;sc.near=1;sc.far=200; moon.shadow.bias=-0.0005; scene.add(moon);
 const moonMesh=new THREE.Mesh(new THREE.SphereGeometry(7,24,24),new THREE.MeshBasicMaterial({color:0xf2f4ff,fog:false}));
@@ -212,7 +212,7 @@ const gunBarrel=new THREE.Mesh(new THREE.BoxGeometry(0.07,0.07,0.5),gunMat); gun
 const gunGrip=new THREE.Mesh(new THREE.BoxGeometry(0.1,0.22,0.12),gunMat); gunGrip.position.set(0,-0.16,0.12); gunGrip.rotation.x=0.3; vm.add(gunGrip);
 const gunFlash=new THREE.Mesh(new THREE.SphereGeometry(0.11,6,6),new THREE.MeshBasicMaterial({color:0xffe08a,fog:false})); gunFlash.position.set(0,0.03,-0.78); gunFlash.visible=false; vm.add(gunFlash);
 const muzzleLight=new THREE.PointLight(0xffd27a,0,12); muzzleLight.position.set(0,0.05,-0.9); vm.add(muzzleLight);
-const torch=new THREE.SpotLight(0xfff2d6,2.6,52,0.6,0.4,1.2); torch.castShadow=false; torch.position.set(0.15,-0.05,0); camera.add(torch);
+const torch=new THREE.SpotLight(0xfff2d6,5.5,62,0.66,0.3,1.0); torch.castShadow=false; torch.position.set(0.15,-0.05,0); camera.add(torch);
 torch.target.position.set(0,-0.04,-1); camera.add(torch.target);
 let vmRecoil=0, bob=0;
 
