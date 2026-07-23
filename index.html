@@ -153,6 +153,8 @@
     </div>
     <button class="btn" id="startBtn" style="margin-top:10px">▶ JUGAR</button>
     <div style="color:var(--muted);font-size:.72rem;margin-top:12px" id="menuHi">Récord: R0</div>
+    <div id="menuCores" style="color:var(--gold);font-size:.82rem;font-weight:800;margin-top:4px">0 ⬢ núcleos</div>
+    <button class="btn ghost" id="metaBtn" style="margin-top:10px">⬢ Mejoras permanentes</button>
     <div class="lb" id="menuLb"><h4>Top mundial</h4><ol id="menuLbList"><li class="empty">Cargando…</li></ol></div>
   </div>
 </div>
@@ -183,6 +185,7 @@
     <div class="title dead" style="font-size:2.2rem">HAS CAÍDO</div>
     <div class="sub">La horda te alcanzó.</div>
     <div class="newhi" id="newHi">★ ¡NUEVO RÉCORD! ★</div>
+    <div id="ovCores" style="color:var(--gold);font-weight:800;margin-bottom:8px"></div>
     <div class="over-stats">
       <div><div class="v" id="ovRound">0</div><div class="k">Rondas</div></div>
       <div><div class="v" id="ovKills">0</div><div class="k">Bajas</div></div>
@@ -191,6 +194,16 @@
     <div class="namerow"><input id="nameInput" maxlength="14" placeholder="Tu nombre" /><button id="sendScore">ENVIAR</button></div>
     <div class="lb" id="overLb"><h4>Top mundial</h4><ol id="overLbList"><li class="empty">—</li></ol></div>
     <button class="btn" id="retryBtn" style="margin-top:14px">↻ REINTENTAR</button>
+  </div>
+</div>
+
+<div class="overlay hide" id="metaView">
+  <div class="card">
+    <div class="title" style="font-size:1.7rem">MEJORAS PERMANENTES</div>
+    <div class="sub" style="margin:6px 0">Ganas <b style="color:var(--gold)">núcleos</b> en cada partida (aunque pierdas). Gástalos aquí y serás más fuerte para siempre.</div>
+    <div class="shop-pts" id="coresBig">0 núcleos</div>
+    <div class="shop-grid" id="metaGrid"></div>
+    <button class="btn" id="metaBack">◀ VOLVER</button>
   </div>
 </div>
 
@@ -481,6 +494,39 @@ let enemies=[], tracers=[], spawnQueue=0, spawnTimer=0, roundActive=false, bossP
 
 function load(){ try{return +localStorage.getItem("ur3d_hi")||0;}catch(e){return 0;} }
 function save(v){ try{localStorage.setItem("ur3d_hi",v);}catch(e){} }
+/* ---------- meta-progresión: núcleos + mejoras permanentes ---------- */
+let metaRegen=18, metaLuck=0.16;
+function loadMeta(){ try{ const m=JSON.parse(localStorage.getItem("ur3d_meta")); if(m&&typeof m==="object"){ if(!m.lvl)m.lvl={}; if(typeof m.cores!=="number")m.cores=0; return m; } }catch(e){} return {cores:0,lvl:{}}; }
+const meta=loadMeta();
+function saveMeta(){ try{ localStorage.setItem("ur3d_meta",JSON.stringify(meta)); }catch(e){} }
+const META=[
+  {id:"hp",   n:"Blindaje",          d:"+20 vida inicial / nivel.",   max:8, base:60, step:70},
+  {id:"dmg",  n:"Munición mejorada", d:"+8% daño base / nivel.",      max:8, base:80, step:90},
+  {id:"spd",  n:"Botas ligeras",     d:"+5% velocidad / nivel.",      max:5, base:70, step:80},
+  {id:"pts",  n:"Fondo inicial",     d:"+300 puntos al empezar.",     max:6, base:60, step:70},
+  {id:"regen",n:"Regeneración",      d:"Te curas más rápido.",        max:5, base:80, step:90},
+  {id:"luck", n:"Suerte",            d:"Más botiquines de zombis.",   max:5, base:90, step:100},
+  {id:"rifle",n:"Fusil de arranque", d:"Empiezas también con Fusil.", max:1, base:600, step:0}
+];
+function metaCost(m){ return m.base+(meta.lvl[m.id]||0)*m.step; }
+function applyMeta(){ const L=meta.lvl;
+  player.maxHp=100+(L.hp||0)*20; player.hp=player.maxHp;
+  player.dmgMult=1+(L.dmg||0)*0.08;
+  player.speed=6*(1+(L.spd||0)*0.05);
+  player.owned=(L.rifle)?["pistol","rifle"]:["pistol"];
+  metaRegen=18+(L.regen||0)*6; metaLuck=0.16+(L.luck||0)*0.05;
+  game.score=(L.pts||0)*300;
+}
+function menuCores(){ const el=$("menuCores"); if(el) el.textContent=meta.cores+" ⬢ núcleos"; }
+function buildMeta(){ $("coresBig").textContent=meta.cores+" núcleos";
+  const g=$("metaGrid"); g.innerHTML="";
+  META.forEach(m=>{ const l=meta.lvl[m.id]||0, maxed=l>=m.max, cost=metaCost(m), can=!maxed&&meta.cores>=cost;
+    const el=document.createElement("div"); el.className="item"+(maxed?" own":"")+((!can&&!maxed)?" dis":"");
+    el.innerHTML='<div class="n">'+m.n+' <span class="pr'+(maxed?' have':'')+'">'+(maxed?"MÁX":(cost+" ⬢"))+'</span></div><div class="d">'+m.d+' <span style="color:var(--accent2)">Nv '+l+'/'+m.max+'</span></div>';
+    el.onclick=()=>{ if(maxed||meta.cores<cost)return; meta.cores-=cost; meta.lvl[m.id]=l+1; saveMeta(); sfx.buy(); buildMeta(); };
+    g.appendChild(el); });
+}
+function openMeta(){ buildMeta(); show("metaView"); }
 
 addEventListener("keydown",e=>{ const k=e.key.toLowerCase(); keys[k]=true;
   if(k===" ") e.preventDefault();
@@ -510,7 +556,7 @@ function startGame(){
   projectiles.forEach(p=>scene.remove(p.m)); projectiles=[];
   pickups.forEach(p=>scene.remove(p.g)); pickups=[];
   decals.forEach(d=>scene.remove(d)); decals=[];
-  equip("pistol"); hide("menuView"); hide("overView"); hide("pauseView"); hide("shopView"); $("hud").style.display="block";
+  applyMeta(); equip("pistol"); hide("menuView"); hide("overView"); hide("pauseView"); hide("shopView"); $("hud").style.display="block";
   nextRound(); touchUI(true); lock();
 }
 function nextRound(){ game.round++; spawnQueue=5+Math.round(game.round*2.2); roundActive=true; spawnTimer=0;
@@ -518,9 +564,11 @@ function nextRound(){ game.round++; spawnQueue=5+Math.round(game.round*2.2); rou
 function openShop(){ game.state="shop"; document.exitPointerLock&&document.exitPointerLock(); touchUI(false); rollCards(); buildShop(); show("shopView"); }
 function pause(){ if(game.state!=="playing")return; game.state="paused"; document.exitPointerLock&&document.exitPointerLock(); touchUI(false); show("pauseView"); }
 function resume(){ if(game.state!=="paused")return; game.state="playing"; hide("pauseView"); clock.getDelta(); touchUI(true); lock(); }
-function quit(){ game.state="menu"; hide("pauseView"); $("hud").style.display="none"; touchUI(false); $("menuHi").textContent="Récord: R"+game.hi; show("menuView"); }
+function quit(){ game.state="menu"; hide("pauseView"); $("hud").style.display="none"; touchUI(false); $("menuHi").textContent="Récord: R"+game.hi; menuCores(); show("menuView"); }
 function gameOver(){ game.state="over"; sfx.over(); mouse.down=false; document.exitPointerLock&&document.exitPointerLock(); touchUI(false);
   const nh=game.round>game.hi; if(nh){ game.hi=game.round; save(game.hi); }
+  const earned=game.round*8+game.kills+Math.floor(game.score/200); meta.cores=(meta.cores|0)+earned; saveMeta();
+  if($("ovCores")) $("ovCores").textContent="+"+earned+" ⬢ núcleos  (total: "+meta.cores+")";
   $("ovRound").textContent=game.round; $("ovKills").textContent=game.kills; $("ovScore").textContent=game.score; $("newHi").style.display=nh?"block":"none"; $("hud").style.display="none";
   try{ $("nameInput").value=localStorage.getItem("ur3d_name")||""; }catch(e){}
   const sb=$("sendScore"); sb.disabled=false; sb.textContent="ENVIAR"; loadTop($("overLbList"));
@@ -623,7 +671,7 @@ function tracer(a,b){ const g=new THREE.BufferGeometry().setFromPoints([a,b]); c
 function killEnemy(e){ if(e.dead)return; e.dead=true; game.kills++; game.score+=e.pts; sfx.kill();
   burst(e.group.position.clone().setY(1),e.boss?30:18,bloodMat,3.5); decal(e.x,e.z);
   if(player.life>0) player.hp=Math.min(player.maxHp,player.hp+player.life);
-  if(Math.random()<(e.boss?1:0.16)) spawnPickup(e.x,e.z); }
+  if(Math.random()<(e.boss?1:metaLuck)) spawnPickup(e.x,e.z); }
 function explode(pt,radius,dmg,exclude){ burst(pt,10,sparkMat,3.2);
   for(const e of enemies){ if(e===exclude||e.dead)continue; const dx=e.x-pt.x,dz=e.z-pt.z; if(dx*dx+dz*dz<radius*radius){ e.hp-=dmg; e.flash=0.06; if(e.hp<=0&&!e.dead) killEnemy(e); } } }
 function hitEnemy(e,base,head,pt){
@@ -724,7 +772,7 @@ function update(dt){
   if(player.reloading&&game.time>=player.reloadEnd){player.reloading=false;player.ammo=WEAPONS[player.weapon].mag;}
   const w=WEAPONS[player.weapon];
   if(mouse.down){ if(w.auto||isTouch) shoot(); else if(mouse.click){ shoot(); mouse.click=false; } }
-  if(game.time-player.lastHurt>4&&player.hp<player.maxHp) player.hp=Math.min(player.maxHp,player.hp+18*dt);
+  if(game.time-player.lastHurt>4&&player.hp<player.maxHp) player.hp=Math.min(player.maxHp,player.hp+metaRegen*dt);
 
   if(roundActive&&spawnQueue>0){ spawnTimer-=dt; if(spawnTimer<=0){ if(bossPending){ spawnEnemy(true); bossPending=false; } else spawnEnemy(false); spawnQueue--; spawnTimer=Math.max(0.3,1.2-game.round*0.03); } }
   if(roundActive&&spawnQueue<=0&&enemies.length===0){ roundActive=false; game.score+=game.round*60; openShop(); }
@@ -812,6 +860,7 @@ async function sendScore(){
 }
 $("sendScore").onclick=sendScore;
 loadTop($("menuLbList"));
+menuCores(); $("metaBtn").onclick=openMeta; $("metaBack").onclick=()=>{ hide("metaView"); menuCores(); };
 
 /* ---------- táctil: joystick de movimiento, arrastre para mirar y botones ---------- */
 if(isTouch){
